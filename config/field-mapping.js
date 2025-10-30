@@ -8,7 +8,7 @@
 module.exports = {
   // Kommo Custom Field ID: Google Docs Placeholder
   '764177': '[Nome Completo]',  // Full Name
-  '3333': '[RG]',                // RG (Identity Document)
-  '44444': '[CPF]',              // CPF (Tax ID)
-  '5555': '[Endereço]',          // Address
+  '764179': '[RG]',                // RG (Identity Document)
+  '764181': '[CPF]',              // CPF (Tax ID)
+  '764183': '[Endereço]',          // Address
 };
