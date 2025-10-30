@@ -63,6 +63,20 @@ module.exports = async (req, res) => {
 
     console.log('Lead fetched:', lead.name);
 
+    // Check if contract already exists (check custom field 768137)
+    const existingContractLink = kommo.getCustomFieldValue(lead, settings.kommo.linkFieldId);
+    if (existingContractLink) {
+      console.log('Contract already exists for this lead:', existingContractLink);
+      return res.status(200).json({
+        success: true,
+        message: 'Contract already exists, skipping creation',
+        leadId,
+        existingLink: existingContractLink,
+      });
+    }
+
+    console.log('No existing contract found, creating new one...');
+
     // Extract custom field values and build replacements
     const replacements = {};
 
@@ -72,9 +86,10 @@ module.exports = async (req, res) => {
       console.log(`${placeholder} = "${value}"`);
     }
 
-    // Generate document title (using lead name and date)
+    // Generate document title using "Nome Completo" field
+    const nomeCompleto = kommo.getCustomFieldValue(lead, '764177') || lead.name;
     const date = new Date().toISOString().split('T')[0];
-    const documentTitle = `Contrato - ${lead.name} - ${date}`;
+    const documentTitle = `Contrato - ${nomeCompleto} - ${date}`;
 
     // Create contract document
     console.log('Creating contract document...');
@@ -89,12 +104,29 @@ module.exports = async (req, res) => {
 
     console.log('Document created:', document.link);
 
-    // Post link back to Kommo if enabled
+    // Update custom field with document link if configured
+    if (settings.kommo.linkFieldId) {
+      console.log(`Updating custom field ${settings.kommo.linkFieldId} with document link...`);
+      try {
+        await kommo.updateLeadCustomField(leadId, settings.kommo.linkFieldId, document.link);
+        console.log('Custom field updated successfully');
+      } catch (error) {
+        console.error('Error updating custom field:', error.message);
+        // Continue even if field update fails
+      }
+    }
+
+    // Post link back to Kommo as note if enabled
     if (settings.kommo.postLinkToLead) {
-      console.log('Posting document link to Kommo...');
-      const noteText = settings.kommo.noteTemplate.replace('{link}', document.link);
-      await kommo.addNoteToLead(leadId, noteText);
-      console.log('Link posted to Kommo');
+      console.log('Posting document link to Kommo as note...');
+      try {
+        const noteText = settings.kommo.noteTemplate.replace('{link}', document.link);
+        await kommo.addNoteToLead(leadId, noteText);
+        console.log('Note posted to Kommo');
+      } catch (error) {
+        console.error('Error adding note:', error.message);
+        // Continue even if note fails
+      }
     }
 
     // Return success response

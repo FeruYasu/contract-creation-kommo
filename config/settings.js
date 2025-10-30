@@ -39,8 +39,12 @@ module.exports = {
 
   // Kommo Integration Settings
   kommo: {
+    // Custom field ID to store the contract link (optional)
+    // If set, the document link will be saved to this custom field
+    linkFieldId: process.env.KOMMO_LINK_FIELD_ID || '768137',
+
     // Whether to post the document link back to the lead as a note
-    postLinkToLead: process.env.KOMMO_POST_LINK === 'true' || true,
+    postLinkToLead: process.env.KOMMO_POST_LINK === 'true' || false,
 
     // Note text template (use {link} placeholder)
     noteTemplate: process.env.KOMMO_NOTE_TEMPLATE || 'Contrato criado: {link}',
