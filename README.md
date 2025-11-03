@@ -11,6 +11,11 @@ Automatically create and fill Google Docs contracts when leads move to a specifi
   - Stores in specific Google Drive folder
   - Shares with team members automatically
   - Gets shareable link
+- **Autentique Integration**: Automatically sends contracts for signature
+  - Exports Google Doc as PDF
+  - Creates document on Autentique with multiple signers
+  - Sandbox mode for testing
+  - Stores signature links in Kommo
 - **Kommo Integration**: Posts document link back as note in lead
 - **Serverless**: Deploys to Vercel with no server management
 
@@ -23,6 +28,7 @@ Automatically create and fill Google Docs contracts when leads move to a specifi
 /lib
   /kommo.js            - Kommo API client
   /google-docs.js      - Google Docs/Drive operations
+  /autentique.js       - Autentique API integration
 /config
   /field-mapping.js    - Maps custom field IDs to placeholders
   /settings.js         - Application settings
@@ -105,7 +111,36 @@ If you need to discover other field IDs, use the helper endpoint after deploymen
 GET https://your-vercel-url.vercel.app/api/list-fields?lead_id=YOUR_LEAD_ID
 ```
 
-### 3. Prepare Google Docs Template
+### 3. Autentique Setup (Optional)
+
+If you want to send contracts for signature via Autentique:
+
+#### Get API Key
+
+1. Log in to your Autentique account at [painel.autentique.com.br](https://painel.autentique.com.br)
+2. Go to **Perfil** > **API**
+3. Generate or copy your **API Key**
+
+#### Create Custom Field for Autentique Link
+
+1. In Kommo, go to **Settings** > **Custom Fields**
+2. Create a new field for storing the Autentique link (e.g., "Autentique Link")
+3. Note the field ID (you can use `/api/list-fields` endpoint to find it)
+
+#### Configure Company Signer
+
+Decide who from your company will sign the contracts and get their:
+- Full name
+- Email address
+
+#### Testing with Sandbox
+
+During development, use sandbox mode to avoid consuming credits:
+- Sandbox documents won't consume your Autentique credits
+- They will be automatically deleted after a few days
+- Perfect for testing the integration
+
+### 4. Prepare Google Docs Template
 
 1. Create a Google Doc with your contract template
 2. Add placeholders exactly as configured:
@@ -152,6 +187,13 @@ GOOGLE_SHARE_ROLE=reader
 
 KOMMO_TRIGGER_PIPELINE_ID=123456
 KOMMO_TRIGGER_STATUS_ID=789012
+
+# Autentique Integration (Optional)
+AUTENTIQUE_API_KEY=your_autentique_api_key
+AUTENTIQUE_SANDBOX=true
+AUTENTIQUE_COMPANY_SIGNER_NAME=Company Representative Name
+AUTENTIQUE_COMPANY_SIGNER_EMAIL=signer@company.com
+KOMMO_AUTENTIQUE_LINK_FIELD_ID=your_custom_field_id
 ```
 
 #### Test Locally
@@ -204,6 +246,11 @@ After deployment:
    - `GOOGLE_SHARE_ROLE` (optional)
    - `KOMMO_TRIGGER_PIPELINE_ID` (optional)
    - `KOMMO_TRIGGER_STATUS_ID` (optional)
+   - `AUTENTIQUE_API_KEY` (optional - enables Autentique)
+   - `AUTENTIQUE_SANDBOX` (optional - defaults to false)
+   - `AUTENTIQUE_COMPANY_SIGNER_NAME` (optional)
+   - `AUTENTIQUE_COMPANY_SIGNER_EMAIL` (required if using Autentique)
+   - `KOMMO_AUTENTIQUE_LINK_FIELD_ID` (optional)
 
 4. Redeploy for changes to take effect
 
@@ -294,7 +341,27 @@ Main webhook handler. Receives Kommo webhooks.
   "success": true,
   "leadId": 123456,
   "documentId": "1abc123xyz",
-  "documentLink": "https://docs.google.com/document/d/1abc123xyz/edit"
+  "documentLink": "https://docs.google.com/document/d/1abc123xyz/edit",
+  "autentique": {
+    "documentId": "uuid-here",
+    "primaryLink": "https://autentique.com.br/sign/...",
+    "signatures": [
+      {
+        "publicId": "signer-id-1",
+        "email": "company@example.com",
+        "name": "Company Representative",
+        "action": "SIGN",
+        "link": "https://autentique.com.br/sign/..."
+      },
+      {
+        "publicId": "signer-id-2",
+        "email": "client@example.com",
+        "name": "Client Name",
+        "action": "SIGN",
+        "link": "https://autentique.com.br/sign/..."
+      }
+    ]
+  }
 }
 ```
 
@@ -350,6 +417,15 @@ Helper endpoint to discover custom field IDs.
 - Verify `KOMMO_ACCESS_TOKEN` is valid
 - Check `KOMMO_DOMAIN` format (include https://)
 - Ensure API access is enabled in Kommo settings
+
+### Autentique integration not working
+
+- Verify `AUTENTIQUE_API_KEY` is set (integration is disabled without it)
+- Check `AUTENTIQUE_COMPANY_SIGNER_EMAIL` is configured
+- Ensure lead has a contact with an email address
+- Check Vercel logs for detailed error messages
+- Use sandbox mode (`AUTENTIQUE_SANDBOX=true`) for testing
+- Verify PDF export is working (check Google Drive permissions)
 
 ## Security Notes
 

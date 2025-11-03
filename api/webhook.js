@@ -7,6 +7,7 @@
 
 const KommoClient = require('../lib/kommo');
 const GoogleDocsClient = require('../lib/google-docs');
+const AutentiqueClient = require('../lib/autentique');
 const fieldMapping = require('../config/field-mapping');
 const settings = require('../config/settings');
 
@@ -104,6 +105,57 @@ module.exports = async (req, res) => {
 
     console.log('Document created:', document.link);
 
+    // Send contract to Autentique if enabled
+    let autentiqueDocument = null;
+    if (settings.autentique.enabled) {
+      try {
+        console.log('Autentique integration is enabled, sending contract for signature...');
+
+        // Get lead contact email using helper method
+        const leadContact = lead._embedded?.contacts?.[0];
+        const leadContactEmail = leadContact ? kommo.getContactEmail(leadContact) : null;
+
+        if (!leadContactEmail) {
+          console.warn('No email found for lead contact, skipping Autentique');
+          console.warn('Contact data:', JSON.stringify(leadContact, null, 2));
+        } else {
+          console.log(`Found lead contact email: ${leadContactEmail}`);
+
+          // Initialize Autentique client
+          const autentique = new AutentiqueClient();
+
+          // Send contract for signature
+          autentiqueDocument = await autentique.sendContractForSignature(
+            document.id,
+            documentTitle,
+            leadContactEmail,
+            nomeCompleto
+          );
+
+          console.log('Contract sent to Autentique:', autentiqueDocument.primaryLink);
+
+          // Update Autentique link custom field if configured
+          if (settings.kommo.autentiqueLinkFieldId) {
+            console.log(`Updating custom field ${settings.kommo.autentiqueLinkFieldId} with Autentique link...`);
+            try {
+              await kommo.updateLeadCustomField(
+                leadId,
+                settings.kommo.autentiqueLinkFieldId,
+                autentiqueDocument.primaryLink
+              );
+              console.log('Autentique link custom field updated successfully');
+            } catch (error) {
+              console.error('Error updating Autentique link custom field:', error.message);
+              // Continue even if field update fails
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error sending contract to Autentique:', error.message);
+        // Continue even if Autentique fails - at least we have the Google Doc
+      }
+    }
+
     // Update custom field with document link if configured
     if (settings.kommo.linkFieldId) {
       console.log(`Updating custom field ${settings.kommo.linkFieldId} with document link...`);
@@ -120,7 +172,13 @@ module.exports = async (req, res) => {
     if (settings.kommo.postLinkToLead) {
       console.log('Posting document link to Kommo as note...');
       try {
-        const noteText = settings.kommo.noteTemplate.replace('{link}', document.link);
+        let noteText = settings.kommo.noteTemplate.replace('{link}', document.link);
+
+        // Add Autentique link to note if available
+        if (autentiqueDocument?.primaryLink) {
+          noteText += `\nAutentique: ${autentiqueDocument.primaryLink}`;
+        }
+
         await kommo.addNoteToLead(leadId, noteText);
         console.log('Note posted to Kommo');
       } catch (error) {
@@ -130,12 +188,23 @@ module.exports = async (req, res) => {
     }
 
     // Return success response
-    return res.status(200).json({
+    const response = {
       success: true,
       leadId,
       documentId: document.id,
       documentLink: document.link,
-    });
+    };
+
+    // Add Autentique info to response if available
+    if (autentiqueDocument) {
+      response.autentique = {
+        documentId: autentiqueDocument.id,
+        primaryLink: autentiqueDocument.primaryLink,
+        signatures: autentiqueDocument.signatures,
+      };
+    }
+
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('Error processing webhook:', error);

@@ -48,5 +48,23 @@ module.exports = {
 
     // Note text template (use {link} placeholder)
     noteTemplate: process.env.KOMMO_NOTE_TEMPLATE || 'Contrato criado: {link}',
+
+    // Custom field ID to store the Autentique document link
+    autentiqueLinkFieldId: process.env.KOMMO_AUTENTIQUE_LINK_FIELD_ID || null,
+  },
+
+  // Autentique Configuration
+  autentique: {
+    // Enable/disable Autentique integration
+    enabled: !!process.env.AUTENTIQUE_API_KEY,
+
+    // Sandbox mode for testing (won't consume credits)
+    sandbox: process.env.AUTENTIQUE_SANDBOX === 'true',
+
+    // Company signer information
+    companySigner: {
+      name: process.env.AUTENTIQUE_COMPANY_SIGNER_NAME || '',
+      email: process.env.AUTENTIQUE_COMPANY_SIGNER_EMAIL || '',
+    },
   },
 };

@@ -49,6 +49,21 @@ module.exports = async (req, res) => {
     const fieldsMetadata = await kommo.getCustomFields();
     const allFields = fieldsMetadata._embedded?.custom_fields || [];
 
+    // Extract contact information
+    const contacts = lead._embedded?.contacts || [];
+    const contactInfo = contacts.map(contact => ({
+      id: contact.id,
+      name: contact.name,
+      email: kommo.getContactEmail(contact),
+      phone: kommo.getContactPhone(contact),
+      customFields: contact.custom_fields_values?.map(field => ({
+        id: field.field_id,
+        code: field.field_code,
+        name: field.field_name,
+        value: field.values?.[0]?.value || null,
+      })) || [],
+    }));
+
     return res.status(200).json({
       lead: {
         id: lead.id,
@@ -56,6 +71,7 @@ module.exports = async (req, res) => {
         status_id: lead.status_id,
         pipeline_id: lead.pipeline_id,
       },
+      contacts: contactInfo,
       customFieldsInLead: fieldInfo,
       allAvailableFields: allFields.map(f => ({
         id: f.id,
