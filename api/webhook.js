@@ -111,13 +111,12 @@ module.exports = async (req, res) => {
       try {
         console.log('Autentique integration is enabled, sending contract for signature...');
 
-        // Get lead contact email using helper method
-        const leadContact = lead._embedded?.contacts?.[0];
-        const leadContactEmail = leadContact ? kommo.getContactEmail(leadContact) : null;
+        // Get lead email from custom field 768253
+        const leadContactEmail = kommo.getCustomFieldValue(lead, '768253');
 
         if (!leadContactEmail) {
-          console.warn('No email found for lead contact, skipping Autentique');
-          console.warn('Contact data:', JSON.stringify(leadContact, null, 2));
+          console.warn('No email found in custom field 768253, skipping Autentique');
+          console.warn('Lead custom fields:', JSON.stringify(lead.custom_fields_values, null, 2));
         } else {
           console.log(`Found lead contact email: ${leadContactEmail}`);
 
