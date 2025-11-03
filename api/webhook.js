@@ -105,6 +105,18 @@ module.exports = async (req, res) => {
 
     console.log('Document created:', document.link);
 
+    // Update custom field with document link immediately to prevent duplicate contracts
+    if (settings.kommo.linkFieldId) {
+      console.log(`Updating custom field ${settings.kommo.linkFieldId} with document link...`);
+      try {
+        await kommo.updateLeadCustomField(leadId, settings.kommo.linkFieldId, document.link);
+        console.log('Custom field updated successfully - second webhook will now skip this lead');
+      } catch (error) {
+        console.error('Error updating custom field:', error.message);
+        // Continue even if field update fails
+      }
+    }
+
     // Send contract to Autentique if enabled
     let autentiqueDocument = null;
     if (settings.autentique.enabled) {
@@ -152,18 +164,6 @@ module.exports = async (req, res) => {
       } catch (error) {
         console.error('Error sending contract to Autentique:', error.message);
         // Continue even if Autentique fails - at least we have the Google Doc
-      }
-    }
-
-    // Update custom field with document link if configured
-    if (settings.kommo.linkFieldId) {
-      console.log(`Updating custom field ${settings.kommo.linkFieldId} with document link...`);
-      try {
-        await kommo.updateLeadCustomField(leadId, settings.kommo.linkFieldId, document.link);
-        console.log('Custom field updated successfully');
-      } catch (error) {
-        console.error('Error updating custom field:', error.message);
-        // Continue even if field update fails
       }
     }
 
